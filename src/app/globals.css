@@ -1,5 +1,12 @@
-@import "tailwindcss";
+/* src/app/globals.css */
 
+/* 1) Tailwind’s own layers—don’t remove @import (if you truly need it) */
+@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 2) Your design tokens and theme definitions */
 :root {
   --background: #ffffff;
   --foreground: #171717;

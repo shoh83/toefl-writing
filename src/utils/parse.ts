@@ -1,14 +1,19 @@
 // src/utils/parse.ts
 
-import { Evaluation, RationaleItem } from './types';
+import { Evaluation } from './types';
 
 export function parseEvaluation(text: string): Evaluation {
   const lines = text.split('\n');
-  const headerEnd = lines.findIndex(line => line.trim() === '**상세 평가**');
+  const headerIdx = lines.findIndex(line => line.trim() === '**상세 평가**');
   
-  // Split numeric section / detailed section
-  const numericLines = lines.slice(0, headerEnd);
-  const detailLines = lines.slice(headerEnd + 1);
+  // 1) numericLines holds everything up to the detailed‐feedback header
+  const numericLines = lines.slice(0, headerIdx);
+
+  // 2) detailLines contains the bullets (each line still starts with "-")
+  const detailLines = lines
+    .slice(headerIdx + 1)
+    .filter(l => l.trim().startsWith('-'))
+    .map(l => l.replace(/^\s*/, ''));  // remove *every* leading space
 
   // Parse numeric scores as before...
   const getScore = (label: string) => {
@@ -24,27 +29,29 @@ export function parseEvaluation(text: string): Evaluation {
     vocabulary:   getScore('어휘의 적절성'),
     naturalness:  getScore('표현의 자연스러움'),
     grammar:      getScore('문법의 정확성'),
-    detailedFeedback: detailLines.join('\n').trim(),
+    detailedFeedback: detailLines.join('\n'),
   };
 }
 
-export function parseRationale(text: string): RationaleItem[] {
-  const marker = '**해설 (Rationale)**';
-  if (!text.includes(marker)) return [];
+// src/utils/parse.ts
 
-  const parts = text.split(marker)[1]
-    .split(/\n\s*\d+\.\s*/)
-    .filter(p => p.trim());
+export function parseRationaleMarkdown(fullText: string): string {
+  // Look for the marker line, allowing optional spaces
+  const markerRegex = /^\s*\*\*해설\s*\(Rationale\)\*\*\s*$/m;
+  const match = fullText.match(markerRegex);
+  if (!match) {
+    console.warn('Rationale marker not found in text; returning all text.');
+    // as a fallback, return the entire text so you see something
+    return fullText.trim();
+  }
 
-  return parts.map(p => {
-    const lines = p.trim().split('\n');
-    const header = lines[0];
-    const reason = lines.slice(1).join('\n').trim();
+  // match.index is the start of the line; find the end-of-line
+  const markerEnd = fullText.indexOf('\n', match.index!);
+  if (markerEnd === -1) {
+    // marker is on the last line—nothing follows
+    return '';
+  }
 
-    const cat = header.match(/\*\*\[(.+?)\]\*\*/)?.[1] || '';
-    const orig = header.match(/\(Original: (.+?)\)/)?.[1] || '';
-    const rev = header.match(/Revised: (.+?)\)/)?.[1] || '';
-
-    return { category: cat, original: orig, revised: rev, reason };
-  });
+  // Return everything after that newline
+  return fullText.slice(markerEnd + 1).trim();
 }

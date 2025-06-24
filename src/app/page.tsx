@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { parseEvaluation, parseRationale } from '../utils/parse';
+import { parseEvaluation, parseRationaleMarkdown } from '../utils/parse';
 import {
   evaluationPrompt,
   revisionPrompt,
@@ -10,7 +10,9 @@ import {
 import { useDiffLoader } from '../hooks/useDiffLoader';
 import { ScoreCircle } from '../components/ScoreCircle';
 import { ScoreBar } from '../components/ScoreBar';
-import { Evaluation, RationaleItem } from '../utils/types';
+import { Evaluation } from '../utils/types';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 async function askServer(prompt: string, reset = false): Promise<string> {
   const res = await fetch('/api/chat', {
@@ -29,7 +31,7 @@ export default function EnglishEvaluatorPage() {
   const [answer, setAnswer] = useState('');
   const [evaluation, setEvaluation] = useState<Evaluation | null>(null);
   const [revisedAnswer, setRevisedAnswer] = useState('');
-  const [rationale, setRationale] = useState<RationaleItem[]>([]);
+  const [rationaleMd, setRationaleMd] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [showDiff, setShowDiff] = useState(false);
@@ -55,7 +57,7 @@ export default function EnglishEvaluatorPage() {
     setError('');
     setEvaluation(null);
     setRevisedAnswer('');
-    setRationale([]);
+    setRationaleMd('');
     setShowDiff(false);
 
 
@@ -71,7 +73,9 @@ export default function EnglishEvaluatorPage() {
 
       // 3) Rationale
       const ratText = await askServer(rationalePrompt(answer, revText));
-      setRationale(parseRationale(ratText));
+      console.log('ratText:', ratText);
+      setRationaleMd(parseRationaleMarkdown(ratText));
+      console.log('rationaleMd:', rationaleMd);
     } catch (e: unknown) {
       if (e instanceof Error) setError(e.message);
       else setError(String(e));
@@ -161,12 +165,14 @@ export default function EnglishEvaluatorPage() {
                 </div>
               </section>
 
-              {/* NEW: Detailed Text Feedback */}
+              {/* Detailed Feedback as Markdown */}
               <section className="bg-white p-6 rounded-xl shadow-md border border-gray-200 mt-6">
                 <h2 className="text-2xl font-bold mb-4">Detailed Feedback</h2>
-                <pre className="whitespace-pre-wrap text-gray-700">
-                  {evaluation.detailedFeedback}
-                </pre>
+                <div className="prose prose-sm max-w-none">
+    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+      {evaluation.detailedFeedback}
+    </ReactMarkdown>
+  </div>
               </section>
             </>
           )}
@@ -194,38 +200,14 @@ export default function EnglishEvaluatorPage() {
             </section>
           )}
 
-          {rationale.length > 0 && (
+          {rationaleMd && (
             <section className="bg-white p-6 rounded-xl shadow-md border border-gray-200">
               <h2 className="text-2xl font-bold mb-4">Rationale for Changes</h2>
-              <div className="space-y-4">
-                {rationale.map((item, idx) => (
-                  <div
-                    key={idx}
-                    className="p-4 border border-gray-200 rounded-lg bg-gray-50"
-                  >
-                    <h3 className="font-bold mb-2">
-                      {idx + 1}. **[{item.category}]**
-                    </h3>
-                    <p>
-                      <span className="font-semibold text-red-600">
-                        Original:
-                      </span>{' '}
-                      <code className="bg-red-100 text-red-800 p-1 rounded">
-                        {item.original}
-                      </code>
-                    </p>
-                    <p className="mt-1">
-                      <span className="font-semibold text-green-600">
-                        Revised:
-                      </span>{' '}
-                      <code className="bg-green-100 text-green-800 p-1 rounded">
-                        {item.revised}
-                      </code>
-                    </p>
-                    <p className="mt-2 text-gray-600">{item.reason}</p>
-                  </div>
-                ))}
-              </div>
+              <div className="prose prose-sm max-w-none">
+           <ReactMarkdown remarkPlugins={[remarkGfm]}>
+             {rationaleMd}
+           </ReactMarkdown>
+         </div>
             </section>
           )}
         </div>
