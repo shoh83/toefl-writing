@@ -1,103 +1,235 @@
-import Image from "next/image";
+'use client';
 
-export default function Home() {
+import { useState, useRef, useEffect } from 'react';
+import { parseEvaluation, parseRationale } from '../utils/parse';
+import {
+  evaluationPrompt,
+  revisionPrompt,
+  rationalePrompt,
+} from '../utils/prompts';
+import { useDiffLoader } from '../hooks/useDiffLoader';
+import { ScoreCircle } from '../components/ScoreCircle';
+import { ScoreBar } from '../components/ScoreBar';
+import { Evaluation, RationaleItem } from '../utils/types';
+
+async function askServer(prompt: string, reset = false): Promise<string> {
+  const res = await fetch('/api/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt, reset }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'API error');
+  return data.text;
+}
+
+export default function EnglishEvaluatorPage() {
+  // --- State Management ---
+  const [task, setTask] = useState('');
+  const [answer, setAnswer] = useState('');
+  const [evaluation, setEvaluation] = useState<Evaluation | null>(null);
+  const [revisedAnswer, setRevisedAnswer] = useState('');
+  const [rationale, setRationale] = useState<RationaleItem[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [showDiff, setShowDiff] = useState(false);
+
+  const resultsRef = useRef<HTMLDivElement>(null);
+  const diffHtml = useDiffLoader(answer, revisedAnswer, showDiff);
+
+  // Scroll into view when results or error appear
+  useEffect(() => {
+    if (evaluation || error) {
+      resultsRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [evaluation, error]);
+
+  // --- Main Handler ---
+  const handleSubmit = async () => {
+    if (!task.trim() || !answer.trim()) {
+      setError('Please provide both the task and your answer.');
+      return;
+    }
+
+    setIsLoading(true);
+    setError('');
+    setEvaluation(null);
+    setRevisedAnswer('');
+    setRationale([]);
+    setShowDiff(false);
+
+
+    try {
+      // 1) Evaluation, with reset=true so server clears history
+      const evalText = await askServer(evaluationPrompt(task, answer), true);
+      setEvaluation(parseEvaluation(evalText));
+      // console.log('Client evalText:', evalText);
+
+      // 2) Revision
+      const revText = await askServer(revisionPrompt);
+      setRevisedAnswer(revText.trim());
+
+      // 3) Rationale
+      const ratText = await askServer(rationalePrompt(answer, revText));
+      setRationale(parseRationale(ratText));
+    } catch (e: unknown) {
+      if (e instanceof Error) setError(e.message);
+      else setError(String(e));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // --- Render ---
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+    <main className="min-h-screen bg-gray-50 font-sans text-gray-800">
+      <div className="max-w-4xl mx-auto p-6">
+        {/* Header */}
+        <header className="text-center mb-8">
+          <h1 className="text-4xl font-bold">AI English Writing Coach</h1>
+          <p className="mt-2 text-lg text-gray-600">
+            Get instant, expert feedback on your writing.
+          </p>
+        </header>
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+        {/* Input Section */}
+        <section className="bg-white p-6 rounded-xl shadow-md border border-gray-200">
+          <div className="space-y-6">
+            <div>
+              <label htmlFor="task" className="block text-sm font-medium mb-1">
+                Writing Task
+              </label>
+              <textarea
+                id="task"
+                rows={4}
+                className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                placeholder="Paste the writing prompt here..."
+                value={task}
+                onChange={(e) => setTask(e.target.value)}
+                disabled={isLoading}
+              />
+            </div>
+            <div>
+              <label htmlFor="answer" className="block text-sm font-medium mb-1">
+                Your Answer
+              </label>
+              <textarea
+                id="answer"
+                rows={8}
+                className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                placeholder="Write your response here..."
+                value={answer}
+                onChange={(e) => setAnswer(e.target.value)}
+                disabled={isLoading}
+              />
+            </div>
+          </div>
+          <button
+            onClick={handleSubmit}
+            disabled={isLoading}
+            className="mt-6 w-full bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700 disabled:bg-blue-300"
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+            {isLoading ? 'Analyzing…' : 'Evaluate My Writing'}
+          </button>
+        </section>
+
+        {/* Results */}
+        <div ref={resultsRef} className="mt-8 space-y-8">
+          {error && (
+            <div className="p-4 bg-red-100 border-l-4 border-red-500 text-red-700 rounded-lg">
+              <strong>Error:</strong> {error}
+            </div>
+          )}
+
+          {evaluation && (
+            <>
+              {/* Numeric UI as before */}
+              <section className="bg-white p-6 rounded-xl shadow-md border border-gray-200">
+                <h2 className="text-2xl font-bold mb-4">Evaluation</h2>
+                <div className="md:grid md:grid-cols-3 gap-6">
+                  <div className="flex justify-center">
+                    <ScoreCircle score={evaluation.totalScore} />
+                  </div>
+                  <div className="md:col-span-2 space-y-3">
+                    <ScoreBar label="Relevancy" score={evaluation.relevancy} />
+                    <ScoreBar label="Elaboration" score={evaluation.elaboration} />
+                    <ScoreBar label="Syntax" score={evaluation.syntax} />
+                    <ScoreBar label="Vocabulary" score={evaluation.vocabulary} />
+                    <ScoreBar label="Naturalness" score={evaluation.naturalness} />
+                    <ScoreBar label="Grammar" score={evaluation.grammar} />
+                  </div>
+                </div>
+              </section>
+
+              {/* NEW: Detailed Text Feedback */}
+              <section className="bg-white p-6 rounded-xl shadow-md border border-gray-200 mt-6">
+                <h2 className="text-2xl font-bold mb-4">Detailed Feedback</h2>
+                <pre className="whitespace-pre-wrap text-gray-700">
+                  {evaluation.detailedFeedback}
+                </pre>
+              </section>
+            </>
+          )}
+          
+
+          {revisedAnswer && (
+            <section className="bg-white p-6 rounded-xl shadow-md border border-gray-200">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-2xl font-bold">Revised Text</h2>
+                <button
+                  onClick={() => setShowDiff((prev) => !prev)}
+                  className="px-4 py-2 text-sm font-medium text-blue-600 bg-blue-100 rounded-lg hover:bg-blue-200"
+                >
+                  {showDiff ? 'Hide Comparison' : 'Compare with Original'}
+                </button>
+              </div>
+              {showDiff ? (
+                <div
+                  className="diff-container"
+                  dangerouslySetInnerHTML={{ __html: diffHtml }}
+                />
+              ) : (
+                <pre className="whitespace-pre-wrap text-gray-700">{revisedAnswer}</pre>
+              )}
+            </section>
+          )}
+
+          {rationale.length > 0 && (
+            <section className="bg-white p-6 rounded-xl shadow-md border border-gray-200">
+              <h2 className="text-2xl font-bold mb-4">Rationale for Changes</h2>
+              <div className="space-y-4">
+                {rationale.map((item, idx) => (
+                  <div
+                    key={idx}
+                    className="p-4 border border-gray-200 rounded-lg bg-gray-50"
+                  >
+                    <h3 className="font-bold mb-2">
+                      {idx + 1}. **[{item.category}]**
+                    </h3>
+                    <p>
+                      <span className="font-semibold text-red-600">
+                        Original:
+                      </span>{' '}
+                      <code className="bg-red-100 text-red-800 p-1 rounded">
+                        {item.original}
+                      </code>
+                    </p>
+                    <p className="mt-1">
+                      <span className="font-semibold text-green-600">
+                        Revised:
+                      </span>{' '}
+                      <code className="bg-green-100 text-green-800 p-1 rounded">
+                        {item.revised}
+                      </code>
+                    </p>
+                    <p className="mt-2 text-gray-600">{item.reason}</p>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+      </div>
+    </main>
   );
 }
