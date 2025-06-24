@@ -1,5 +1,8 @@
 // src/hooks/useDiffLoader.ts
+
 import { useState, useEffect } from 'react';
+// We only need the `diffWords` function from the 'diff' package
+import { diffWords } from 'diff';
 
 export function useDiffLoader(
   original: string,
@@ -9,44 +12,36 @@ export function useDiffLoader(
   const [diffHtml, setDiffHtml] = useState('');
 
   useEffect(() => {
+    // If we're not showing the diff, clear the HTML and do nothing.
     if (!show) {
       setDiffHtml('');
       return;
     }
 
-    const cssLink = document.createElement('link');
-    cssLink.rel = 'stylesheet';
-    cssLink.href = 'https://cdn.jsdelivr.net/npm/diff2html@3.4.47/bundles/css/diff2html.min.css';
-    document.head.appendChild(cssLink);
+    // 1. Calculate the word-by-word differences using the `diff` library.
+    const differences = diffWords(original, revised);
 
-    const loadScript = (src: string) =>
-      new Promise<void>(res => {
-        const s = document.createElement('script');
-        s.src = src; s.async = true;
-        s.onload = () => res();
-        document.body.appendChild(s);
-      });
+    // 2. Build an HTML string from the array of differences.
+    const resultHtml = differences
+      .map(part => {
+        const text = part.value;
 
-    Promise.all([
-      loadScript('https://cdn.jsdelivr.net/npm/diff@5.1.0/dist/diff.min.js'),
-      loadScript('https://cdn.jsdelivr.net/npm/diff2html@3.4.47/bundles/js/diff2html.min.js'),
-    ]).then(() => {
-      // @ts-expect-error: using Diff from CDN-loaded script
-      const diffStr = Diff.createPatch('answer.txt', original, revised);
-      // @ts-expect-error: using Diff2Html from CDN-loaded script
-      const html = Diff2Html.getPrettyHtml(diffStr, {
-        inputFormat: 'diff',
-        showFiles: false,
-        matching: 'lines',
-        outputFormat: 'side-by-side',
-      });
-      setDiffHtml(html);
-    });
+        if (part.added) {
+          // Wrap added text in an <ins> tag (for "inserted").
+          return `<ins>${text}</ins>`;
+        }
+        if (part.removed) {
+          // Wrap removed text in a <del> tag (for "deleted").
+          return `<del>${text}</del>`;
+        }
+        // Unchanged text is returned as-is, without any wrapper tag.
+        return text;
+      })
+      .join('');
 
-    return () => {
-      document.head.removeChild(cssLink);
-      // (scripts cleanup omitted for brevity)
-    };
+    setDiffHtml(resultHtml);
+
+    // No cleanup is needed since we aren't adding links or scripts anymore.
   }, [original, revised, show]);
 
   return diffHtml;

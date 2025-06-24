@@ -1,22 +1,11 @@
 /* src/app/globals.css */
 
-/* 1) Tailwind’s own layers—don’t remove @import (if you truly need it) */
 @import "tailwindcss";
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
 
-/* 2) Your design tokens and theme definitions */
+/* Your custom base styles and variables come AFTER the import */
 :root {
   --background: #ffffff;
   --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -27,7 +16,44 @@
 }
 
 body {
-  background: var(--background);
+  background-color: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+}
+
+.prose ul {
+  /* Restore the left padding to make space for bullets */
+  padding-left: 1.75em; /* Adjust this value if needed */
+}
+
+.prose ul > li {
+  /* Force the bullet point style */
+  list-style-type: disc;
+  margin-top: 0.5em; 
+}
+
+.prose ol {
+  /* Restore the left padding to make space for bullets */
+  padding-left: 1.75em; /* Adjust this value if needed */
+}
+
+.prose ol > li {
+  /* Force the bullet point style */
+  list-style-type: number;
+  margin-top: 0.5em; 
+}
+
+.diff-container del {
+  background-color: #fff0f0; /* Light red background */
+  color: #c00;            /* Darker red text for contrast */
+  text-decoration: line-through;
+  padding: 2px 1px;
+  border-radius: 3px;
+}
+
+.diff-container ins {
+  background-color: #e6ffed; /* Light green background */
+  color: #0d6d0f;          /* Darker green text for contrast */
+  text-decoration: none;     /* Remove default underline */
+  padding: 2px 1px;
+  border-radius: 3px;
 }

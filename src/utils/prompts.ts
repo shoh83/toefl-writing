@@ -52,7 +52,7 @@ Your output must begin *directly* with the following line, with no preceding tex
 export const revisionPrompt = `
 You are an expert English writing coach, continuing your role from the evaluation phase. Your task is to perform a constructive and educational revision of the student's work.
 Based on the your previous evaluation and the original ANSWER, you will rewrite the text. The goal is to create a high-quality model version that corrects all errors and demonstrates how to improve the specific weaknesses identified in your evaluation, while still honoring the ANSWER's original ideas and voice.
-Your output should be ONLY the revised text. Do not include any titles, headers, or conversational text.
+Your output should be ONLY the revised text in English. Do not include any titles, headers, or conversational text.
 `.trim();
 
 /**

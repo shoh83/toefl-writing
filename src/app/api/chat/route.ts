@@ -2,7 +2,7 @@
 import { NextResponse } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
 
-const MODEL_NAME = 'gemini-2.5-flash';                  // ← one place to change
+const MODEL_NAME = 'gemini-2.5-pro';                  // ← one place to change
 const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_API_KEY! });
 let chat = ai.chats.create({ model: MODEL_NAME, history: [] });
 

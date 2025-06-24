@@ -73,9 +73,9 @@ export default function EnglishEvaluatorPage() {
 
       // 3) Rationale
       const ratText = await askServer(rationalePrompt(answer, revText));
-      console.log('ratText:', ratText);
+      // console.log('ratText:', ratText);
       setRationaleMd(parseRationaleMarkdown(ratText));
-      console.log('rationaleMd:', rationaleMd);
+      // console.log('rationaleMd:', rationaleMd);
     } catch (e: unknown) {
       if (e instanceof Error) setError(e.message);
       else setError(String(e));
@@ -84,6 +84,7 @@ export default function EnglishEvaluatorPage() {
     }
   };
 
+    
   // --- Render ---
   return (
     <main className="min-h-screen bg-gray-50 font-sans text-gray-800">
@@ -169,6 +170,7 @@ export default function EnglishEvaluatorPage() {
               <section className="bg-white p-6 rounded-xl shadow-md border border-gray-200 mt-6">
                 <h2 className="text-2xl font-bold mb-4">Detailed Feedback</h2>
                 <div className="prose prose-sm max-w-none">
+                  
     <ReactMarkdown remarkPlugins={[remarkGfm]}>
       {evaluation.detailedFeedback}
     </ReactMarkdown>
@@ -191,11 +193,11 @@ export default function EnglishEvaluatorPage() {
               </div>
               {showDiff ? (
                 <div
-                  className="diff-container"
+                  className="diff-container whitespace-pre-wrap text-left text-base"
                   dangerouslySetInnerHTML={{ __html: diffHtml }}
                 />
               ) : (
-                <pre className="whitespace-pre-wrap text-gray-700">{revisedAnswer}</pre>
+                <pre className="whitespace-pre-wrap text-base">{revisedAnswer}</pre>
               )}
             </section>
           )}
